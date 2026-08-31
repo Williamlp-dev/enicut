@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Agent and AI Workspaces
+.agents
+.gemini
+
+# Tauri / Rust
+src-tauri/target/

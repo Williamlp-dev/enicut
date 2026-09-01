@@ -1,5 +1,4 @@
 pub mod ffmpeg;
-pub mod ffprobe;
+pub mod media_info;
 pub mod paths;
 pub mod thumbnails;
-

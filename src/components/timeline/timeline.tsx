@@ -16,7 +16,9 @@ export function Timeline() {
     setInPoint,
     setOutPoint,
     thumbnails,
-    seek,
+    beginScrub,
+    scrubTo,
+    endScrub,
   } = useVideoContext();
 
   const trackRef = useRef<HTMLDivElement>(null);
@@ -45,22 +47,22 @@ export function Timeline() {
       const track = trackRef.current;
       track.setPointerCapture(event.pointerId);
 
-      const seekToPointer = (clientX: number) => {
-        seek(clientXToTime(clientX));
-      };
+      beginScrub();
+      scrubTo(clientXToTime(event.clientX));
 
-      seekToPointer(event.clientX);
+      const onMove = (moveEvent: PointerEvent) =>
+        scrubTo(clientXToTime(moveEvent.clientX));
 
-      const onMove = (moveEvent: PointerEvent) => seekToPointer(moveEvent.clientX);
-      const onUp = () => {
+      const onUp = (upEvent: PointerEvent) => {
         track.removeEventListener("pointermove", onMove);
         track.removeEventListener("pointerup", onUp);
+        endScrub(clientXToTime(upEvent.clientX));
       };
 
       track.addEventListener("pointermove", onMove);
       track.addEventListener("pointerup", onUp);
     },
-    [videoInfo, seek, clientXToTime],
+    [videoInfo, beginScrub, scrubTo, endScrub, clientXToTime],
   );
 
   if (!videoInfo) return <div className="flex-1 relative mx-6 my-8" />;

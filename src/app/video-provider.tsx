@@ -13,7 +13,8 @@ import { type UseVideoReturn, useVideo } from "@/hooks/useVideo";
 import { generateThumbnails, getCliArg } from "@/lib/tauri";
 import type { VideoInfo } from "@/types/video";
 
-// resolveVideoSrc is internal — VideoProvider exposes handleOpenFile instead
+// resolveVideoSrc é interno — VideoProvider expõe handleOpenFile em seu lugar.
+// beginScrub, scrubTo e endScrub são propagados via spread de video abaixo.
 type VideoAPI = Omit<UseVideoReturn, "resolveVideoSrc">;
 
 interface VideoContextValue extends VideoAPI, UseTimelineReturn, UseCutReturn {

@@ -5,34 +5,50 @@ interface PlayheadProps {
   duration: number;
 }
 
-// Posição do playhead atualizada via requestAnimationFrame → DOM style.left.
-// Zero atualizações de estado do React durante a reprodução — o componente renderiza apenas uma vez.
+// Posição do playhead atualizada via requestVideoFrameCallback → DOM style.left.
+// Dispara exatamente uma vez por frame decodificado — sem polling quando pausado.
+// Fallback para requestAnimationFrame em browsers sem suporte a rVFC.
 export function Playhead({ videoRef, duration }: PlayheadProps) {
   const playheadRef = useRef<HTMLDivElement>(null);
-  const rafIdRef = useRef<number>(0);
+  const callbackIdRef = useRef<number>(0);
 
   useEffect(() => {
     if (duration === 0) return;
 
-    const updatePosition = () => {
-      const video = videoRef.current;
-      const el = playheadRef.current;
+    const video = videoRef.current;
+    if (!video) return;
 
-      if (
-        video &&
-        el &&
-        Number.isFinite(video.duration) &&
-        video.duration > 0
-      ) {
-        const pct = (video.currentTime / video.duration) * 100;
+    const supportsRVFC = "requestVideoFrameCallback" in HTMLVideoElement.prototype;
+
+    const updatePosition = () => {
+      const el = playheadRef.current;
+      const vid = videoRef.current;
+
+      if (el && vid && Number.isFinite(vid.duration) && vid.duration > 0) {
+        const pct = (vid.currentTime / vid.duration) * 100;
         el.style.left = `${pct}%`;
       }
 
-      rafIdRef.current = requestAnimationFrame(updatePosition);
+      if (supportsRVFC) {
+        callbackIdRef.current = videoRef.current?.requestVideoFrameCallback(updatePosition) ?? 0;
+      } else {
+        callbackIdRef.current = requestAnimationFrame(updatePosition);
+      }
     };
 
-    rafIdRef.current = requestAnimationFrame(updatePosition);
-    return () => cancelAnimationFrame(rafIdRef.current);
+    if (supportsRVFC) {
+      callbackIdRef.current = video.requestVideoFrameCallback(updatePosition);
+    } else {
+      callbackIdRef.current = requestAnimationFrame(updatePosition);
+    }
+
+    return () => {
+      if (supportsRVFC) {
+        videoRef.current?.cancelVideoFrameCallback(callbackIdRef.current);
+      } else {
+        cancelAnimationFrame(callbackIdRef.current);
+      }
+    };
   }, [videoRef, duration]);
 
   return (

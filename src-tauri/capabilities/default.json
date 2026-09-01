@@ -16,21 +16,6 @@
     "dialog:allow-open",
     "fs:default",
     "fs:allow-read-file",
-    "fs:allow-read-dir",
-    {
-      "identifier": "shell:allow-execute",
-      "allow": [
-        {
-          "name": "binaries/ffmpeg",
-          "sidecar": true,
-          "args": true
-        },
-        {
-          "name": "binaries/ffprobe",
-          "sidecar": true,
-          "args": true
-        }
-      ]
-    }
+    "fs:allow-read-dir"
   ]
 }

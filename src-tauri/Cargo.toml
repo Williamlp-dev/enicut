@@ -26,15 +26,21 @@ tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
-tauri-plugin-shell = "2"
 tauri-plugin-single-instance = "2"
+mp4 = "0.14"
 
 # Windows Media Foundation — substitui ffprobe sem binários externos.
 # Versão 0.61 alinhada com a que o Tauri já usa internamente,
 # evitando dois exemplares de windows no grafo e conflitos de tipo.
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = [
+    "Foundation",
+    "Foundation_Collections",
+    "Media_Editing",
+    "Storage",
+    "Storage_Streams",
     "Win32_Foundation",
+    "Win32_Graphics_Imaging",
     "Win32_Media_MediaFoundation",
     "Win32_System_Com",
 ] }

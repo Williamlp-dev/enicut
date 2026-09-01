@@ -45,9 +45,6 @@
         "installerIcon": "icons/icon.ico"
       }
     },
-    "externalBin": [
-      "binaries/ffmpeg"
-    ],
     "fileAssociations": [
       {
         "ext": ["mp4", "mkv", "mov", "avi", "webm", "m4v"],

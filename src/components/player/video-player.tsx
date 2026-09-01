@@ -93,6 +93,7 @@ export function VideoPlayer() {
     onPlay,
     onPause,
     onEnded,
+    onSeeked,
   } = useVideoContext();
 
   const { isDragging } = useFileDrop({ onFile: handleOpenFile, videoInfo });
@@ -138,6 +139,7 @@ export function VideoPlayer() {
         onPlay={onPlay}
         onPause={onPause}
         onEnded={onEnded}
+        onSeeked={onSeeked}
         // Eventos de diagnóstico no console para monitorar ciclo de vida da mídia
         onLoadedMetadata={(event) => {
           const videoElement = event.currentTarget;

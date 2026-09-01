@@ -1,0 +1,60 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-bg: rgba(15, 14, 16, 0.75);
+  --color-surface: rgba(0, 0, 0, 0.55);
+  --color-surface-2: rgba(26, 25, 29, 0.80);
+  --color-surface-3: rgba(42, 41, 45, 0.85);
+  --color-border: rgba(26, 25, 29, 0.90);
+  --color-text: #ffffff;
+  --color-text-muted: #888888;
+  --color-accent: #76b900;
+  --color-accent-hover: #8be000;
+  --color-accent-dim: #76b90020;
+  --color-danger: #ef4444;
+  --color-playhead: #ffffff;
+
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+}
+
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+/* Trava o viewport para eliminar barras de rolagem fantasmas e flash visual no redimensionamento.
+ * background-color sincroniza com o backgroundColor nativo configurado no tauri.conf.json. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: rgb(15, 14, 16);
+  box-sizing: border-box;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+.btn-press {
+  will-change: transform;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    border-color 150ms ease-out,
+    opacity 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+
+.btn-press:active:not(:disabled) {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}

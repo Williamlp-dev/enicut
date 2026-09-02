@@ -1,8 +1,8 @@
 [package]
 name = "enicut"
-version = "0.1.0"
-description = "ENICUT — fast video cutter"
-authors = ["Williamlp-dev"]
+version = "0.2.0"
+description = "Cortador de vídeos rápido"
+authors = ["William Lopes"]
 edition = "2021"
 
 [[bin]]

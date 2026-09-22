@@ -7,15 +7,17 @@ export function Thumbnails({ srcs }: ThumbnailsProps) {
 
   return (
     <div className="absolute inset-0 flex overflow-hidden rounded-md pointer-events-none opacity-90 z-0">
-      {srcs.map((src, i) => (
-        <img
-          key={src}
-          src={src}
-          className="flex-1 h-full object-cover min-w-0 border-r border-background/20 last:border-r-0"
-          alt={`Frame ${i + 1}`}
-          draggable={false}
-        />
-      ))}
+      {srcs.map((src, i) =>
+        src ? (
+          <img
+            key={src}
+            src={src}
+            className="flex-1 h-full object-cover min-w-0 border-r border-background/20 last:border-r-0"
+            alt={`Frame ${i + 1}`}
+            draggable={false}
+          />
+        ) : null,
+      )}
     </div>
   );
 }

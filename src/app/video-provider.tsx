@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { type UseCutReturn, useCut } from "@/hooks/useCut";
@@ -37,6 +38,7 @@ export function VideoProvider({ children }: { children: React.ReactNode }) {
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
+  const activeVideoPathRef = useRef<string | null>(null);
 
   const video = useVideo();
   const { resolveVideoSrc, pause, videoRef } = video;
@@ -51,6 +53,7 @@ export function VideoProvider({ children }: { children: React.ReactNode }) {
 
   const handleOpenFile = useCallback(
     async (path: string) => {
+      activeVideoPathRef.current = path;
       try {
         const { info, src } = await resolveVideoSrc(path);
 
@@ -64,6 +67,7 @@ export function VideoProvider({ children }: { children: React.ReactNode }) {
         setThumbnails([]);
         generateThumbnails(path, 10)
           .then(async (paths) => {
+            if (activeVideoPathRef.current !== path) return;
             const { convertFileSrc } = await import("@tauri-apps/api/core");
             setThumbnails(paths.map((p) => convertFileSrc(p)));
           })
@@ -78,6 +82,7 @@ export function VideoProvider({ children }: { children: React.ReactNode }) {
   );
 
   const handleCloseVideo = useCallback(() => {
+    activeVideoPathRef.current = null;
     pause();
     setVideoSrc(null);
     setVideoInfo(null);

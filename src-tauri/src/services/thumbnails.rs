@@ -10,12 +10,13 @@ use windows::{
         CLSID_WICImagingFactory, GUID_ContainerFormatJpeg, GUID_WICPixelFormat24bppBGR,
         GUID_WICPixelFormat32bppBGRA, IWICBitmap, IWICBitmapEncoder,
         IWICBitmapFrameEncode, IWICBitmapScaler, IWICImagingFactory, IWICStream,
-        WICBitmapEncoderNoCache, WICBitmapInterpolationModeFant,
+        WICBitmapEncoderNoCache, WICBitmapInterpolationModeLinear,
     },
     Win32::Media::MediaFoundation::{
         IMFAttributes, IMFMediaType, IMFSample, IMFSourceReader, MFCreateAttributes,
         MFCreateMediaType, MFCreateSourceReaderFromURL, MFStartup, MFSTARTUP_NOSOCKET,
-        MFVideoFormat_RGB32, MF_MT_FRAME_SIZE, MF_MT_MAJOR_TYPE, MF_MT_SUBTYPE,
+        MFVideoFormat_RGB32, MF_LOW_LATENCY, MF_MT_FRAME_SIZE, MF_MT_MAJOR_TYPE,
+        MF_MT_SUBTYPE, MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS,
         MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, MF_SOURCE_READER_FIRST_AUDIO_STREAM,
         MF_SOURCE_READER_FIRST_VIDEO_STREAM, MF_VERSION,
     },
@@ -26,7 +27,7 @@ use windows::{
 };
 
 /// Gera `count` imagens em miniatura (JPEG) distribuídas uniformemente ao longo da duração do vídeo.
-/// Usa Windows Media Foundation para decodificação nativa e WIC para gravação em JPEG.
+/// Usa Windows Media Foundation com aceleração por GPU e redimensionamento nativo.
 pub fn generate(
     video_path: &Path,
     duration: f64,
@@ -106,11 +107,16 @@ unsafe fn extract_thumbnails(
         .map_err(|e| format!("MFStartup falhou: {e}"))?;
 
     let mut attr_opt: Option<IMFAttributes> = None;
-    MFCreateAttributes(&mut attr_opt, 1)
+    MFCreateAttributes(&mut attr_opt, 3)
         .map_err(|e| format!("MFCreateAttributes falhou: {e}"))?;
     let attr = attr_opt.ok_or_else(|| "MFCreateAttributes retornou None".to_string())?;
-    attr.SetUINT32(&MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, 1)
-        .map_err(|e| format!("SetUINT32(ENABLE_VIDEO_PROCESSING) falhou: {e}"))?;
+
+    // 1. Habilita decodificação acelerada por hardware via GPU (NVDEC / Intel QSV / AMD)
+    let _ = attr.SetUINT32(&MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, 1);
+    // 2. Habilita o processador de vídeo interno para downscaling e conversão de cores nativa
+    let _ = attr.SetUINT32(&MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, 1);
+    // 3. Otimiza latência de leitura
+    let _ = attr.SetUINT32(&MF_LOW_LATENCY, 1);
 
     let url = HSTRING::from(video_path.to_string_lossy().as_ref());
     let reader: IMFSourceReader = MFCreateSourceReaderFromURL(&url, &attr)
@@ -120,25 +126,11 @@ unsafe fn extract_thumbnails(
     let _ = reader.SetStreamSelection(MF_SOURCE_READER_FIRST_AUDIO_STREAM.0 as u32, false);
     let _ = reader.SetStreamSelection(MF_SOURCE_READER_FIRST_VIDEO_STREAM.0 as u32, true);
 
-    // Configura o decodificador para emitir RGB32
-    let rgb_type: IMFMediaType = MFCreateMediaType()
-        .map_err(|e| format!("MFCreateMediaType falhou: {e}"))?;
-    rgb_type
-        .SetGUID(&MF_MT_MAJOR_TYPE, &windows::Win32::Media::MediaFoundation::MFMediaType_Video)
-        .map_err(|e| format!("SetGUID(MF_MT_MAJOR_TYPE) falhou: {e}"))?;
-    rgb_type
-        .SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_RGB32)
-        .map_err(|e| format!("SetGUID(MF_MT_SUBTYPE) falhou: {e}"))?;
-
-    reader
-        .SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM.0 as u32, None, &rgb_type)
-        .map_err(|e| format!("SetCurrentMediaType falhou: {e}"))?;
-
-    // Dimensões do vídeo
-    let current_type = reader
-        .GetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM.0 as u32)
-        .map_err(|e| format!("GetCurrentMediaType falhou: {e}"))?;
-    let frame_size = current_type
+    // Lê a resolução nativa do vídeo
+    let native_type = reader
+        .GetNativeMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM.0 as u32, 0)
+        .map_err(|e| format!("GetNativeMediaType falhou: {e}"))?;
+    let frame_size = native_type
         .GetUINT64(&MF_MT_FRAME_SIZE)
         .map_err(|e| format!("MF_MT_FRAME_SIZE falhou: {e}"))?;
     let src_width = (frame_size >> 32) as u32;
@@ -150,6 +142,44 @@ unsafe fn extract_thumbnails(
 
     let target_width = 160u32;
     let target_height = (((160.0 / src_width as f64) * src_height as f64).round() as u32).max(1);
+
+    // Solicita RGB32 já redimensionado pelo Video Processor nativo para 160xH
+    let rgb_type: IMFMediaType = MFCreateMediaType()
+        .map_err(|e| format!("MFCreateMediaType falhou: {e}"))?;
+    rgb_type
+        .SetGUID(&MF_MT_MAJOR_TYPE, &windows::Win32::Media::MediaFoundation::MFMediaType_Video)
+        .map_err(|e| format!("SetGUID(MF_MT_MAJOR_TYPE) falhou: {e}"))?;
+    rgb_type
+        .SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_RGB32)
+        .map_err(|e| format!("SetGUID(MF_MT_SUBTYPE) falhou: {e}"))?;
+
+    let target_size = ((target_width as u64) << 32) | (target_height as u64);
+    let _ = rgb_type.SetUINT64(&MF_MT_FRAME_SIZE, target_size);
+
+    if reader.SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM.0 as u32, None, &rgb_type).is_err() {
+        // Fallback: se o decoder não aceitar redimensionamento direto, solicita RGB32 padrão
+        let fallback_type: IMFMediaType = MFCreateMediaType()
+            .map_err(|e| format!("MFCreateMediaType falhou: {e}"))?;
+        fallback_type
+            .SetGUID(&MF_MT_MAJOR_TYPE, &windows::Win32::Media::MediaFoundation::MFMediaType_Video)
+            .map_err(|e| format!("SetGUID fallback falhou: {e}"))?;
+        fallback_type
+            .SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_RGB32)
+            .map_err(|e| format!("SetGUID fallback falhou: {e}"))?;
+        reader
+            .SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM.0 as u32, None, &fallback_type)
+            .map_err(|e| format!("SetCurrentMediaType falhou: {e}"))?;
+    }
+
+    // Lê a resolução real entregue pelo Media Foundation
+    let current_type = reader
+        .GetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM.0 as u32)
+        .map_err(|e| format!("GetCurrentMediaType falhou: {e}"))?;
+    let actual_size = current_type
+        .GetUINT64(&MF_MT_FRAME_SIZE)
+        .map_err(|e| format!("MF_MT_FRAME_SIZE falhou: {e}"))?;
+    let decode_width = (actual_size >> 32) as u32;
+    let decode_height = (actual_size & 0xFFFF_FFFF) as u32;
 
     let wic_factory: IWICImagingFactory = CoCreateInstance(&CLSID_WICImagingFactory, None, CLSCTX_INPROC_SERVER)
         .map_err(|e| format!("CoCreateInstance(CLSID_WICImagingFactory) falhou: {e}"))?;
@@ -172,8 +202,9 @@ unsafe fn extract_thumbnails(
 
         let _ = reader.SetCurrentPosition(&GUID::zeroed(), &var_pos);
 
+        // Busca o keyframe mais próximo imediatamente após o seek (evita decodificar múltiplos frames)
         let mut actual_sample: Option<IMFSample> = None;
-        for _ in 0..30 {
+        for _ in 0..5 {
             let mut actual_stream_index = 0u32;
             let mut stream_flags = 0u32;
             let mut sample_timestamp = 0i64;
@@ -194,9 +225,7 @@ unsafe fn extract_thumbnails(
 
             if let Some(s) = sample_opt {
                 actual_sample = Some(s);
-                if sample_timestamp >= timestamp_100ns {
-                    break;
-                }
+                break;
             }
         }
 
@@ -221,8 +250,8 @@ unsafe fn extract_thumbnails(
             let save_res = save_jpeg_frame(
                 &wic_factory,
                 slice,
-                src_width,
-                src_height,
+                decode_width,
+                decode_height,
                 target_width,
                 target_height,
                 out_path,
@@ -296,8 +325,6 @@ unsafe fn save_jpeg_frame(
     };
 
     // Força o 4º byte (alpha/padding) para 0xFF (100% opaco).
-    // No Media Foundation RGB32, o 4º byte é 0x00; sem isso, o encoder WIC interpreta
-    // os pixels como 100% transparentes e renderiza o JPEG completamente PRETO.
     let mut opaque_buffer = valid_slice.to_vec();
     for pixel in opaque_buffer.chunks_exact_mut(4) {
         pixel[3] = 0xFF;
@@ -313,17 +340,24 @@ unsafe fn save_jpeg_frame(
         )
         .map_err(|e| format!("CreateBitmapFromMemory falhou: {e}"))?;
 
-    let scaler: IWICBitmapScaler = factory
-        .CreateBitmapScaler()
-        .map_err(|e| format!("CreateBitmapScaler falhou: {e}"))?;
+    if src_width == dst_width && src_height == dst_height {
+        // Já está no tamanho final correto! Grava direto sem scaler
+        frame
+            .WriteSource(&bitmap, std::ptr::null())
+            .map_err(|e| format!("WriteSource falhou: {e}"))?;
+    } else {
+        let scaler: IWICBitmapScaler = factory
+            .CreateBitmapScaler()
+            .map_err(|e| format!("CreateBitmapScaler falhou: {e}"))?;
 
-    scaler
-        .Initialize(&bitmap, dst_width, dst_height, WICBitmapInterpolationModeFant)
-        .map_err(|e| format!("Scaler Initialize falhou: {e}"))?;
+        scaler
+            .Initialize(&bitmap, dst_width, dst_height, WICBitmapInterpolationModeLinear)
+            .map_err(|e| format!("Scaler Initialize falhou: {e}"))?;
 
-    frame
-        .WriteSource(&scaler, std::ptr::null())
-        .map_err(|e| format!("WriteSource falhou: {e}"))?;
+        frame
+            .WriteSource(&scaler, std::ptr::null())
+            .map_err(|e| format!("WriteSource falhou: {e}"))?;
+    }
 
     frame
         .Commit()

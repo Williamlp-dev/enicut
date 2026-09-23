@@ -31,6 +31,12 @@ pub fn run() {
             }
         }))
         .setup(move |app| {
+            // Registra o plugin de atualização apenas em builds desktop.
+            // iOS e Android não são suportados pelo tauri-plugin-updater.
+            // Padrão oficial: https://github.com/tauri-apps/plugins-workspace/tree/v2/plugins/updater
+            #[cfg(desktop)]
+            app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+
             // Aplica o efeito Mica nativo do Windows 11 para aparência integrada ao sistema.
             // Mica com dark=true combina com o tema escuro do Enicut.
             // Em versões anteriores ao Windows 11 o erro é ignorado silenciosamente.
@@ -52,6 +58,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             commands::video::probe_video,
             commands::cut::cut_video,

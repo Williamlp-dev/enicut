@@ -29,3 +29,6 @@ dist-ssr
 
 # Tauri / Rust
 src-tauri/target/
+*.key
+*.key.pub
+.tauri/

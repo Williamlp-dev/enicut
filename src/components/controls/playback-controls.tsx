@@ -1,4 +1,4 @@
-import { FastForward, Pause, Play, Rewind } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useVideoContext } from "@/app/video-provider";
 import { TimeDisplay } from "@/components/controls/time-display";
@@ -84,14 +84,16 @@ export function PlaybackControls() {
     <div className="h-16 flex items-center justify-between px-6 bg-surface-2 border-t border-border shrink-0 z-10">
       <VolumeControl videoRef={videoRef} disabled={disabled} />
 
-      <div className="flex flex-1 items-center justify-center gap-4">
+      <div className="flex flex-1 items-center justify-center gap-3">
         <Button
-          variant="icon"
+          variant="secondary"
           disabled={disabled}
           onClick={seekBackward}
-          title="Voltar 10s"
+          title="Voltar 10 segundos"
+          className="h-8 px-2.5 rounded-lg font-mono text-xs text-text-muted hover:text-text gap-1 bg-surface/50 hover:bg-surface-3 border-border/60 hover:border-border"
         >
-          <Rewind size={16} />
+          <ChevronLeft size={14} />
+          <span>10s</span>
         </Button>
 
         <Button
@@ -123,12 +125,14 @@ export function PlaybackControls() {
         </Button>
 
         <Button
-          variant="icon"
+          variant="secondary"
           disabled={disabled}
           onClick={seekForward}
-          title="Avançar 10s"
+          title="Avançar 10 segundos"
+          className="h-8 px-2.5 rounded-lg font-mono text-xs text-text-muted hover:text-text gap-1 bg-surface/50 hover:bg-surface-3 border-border/60 hover:border-border"
         >
-          <FastForward size={16} />
+          <span>10s</span>
+          <ChevronRight size={14} />
         </Button>
       </div>
 

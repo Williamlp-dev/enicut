@@ -1,7 +1,7 @@
 {
   "name": "enicut",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "ENICUT — Cortador de vídeos rápido",
   "type": "module",
   "scripts": {

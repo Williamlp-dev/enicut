@@ -1,6 +1,6 @@
 [package]
 name = "enicut"
-version = "0.3.0"
+version = "0.3.1"
 description = "Cortador de vídeos rápido"
 authors = ["William Lopes"]
 edition = "2021"

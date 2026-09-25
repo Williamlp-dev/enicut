@@ -1,58 +1,102 @@
 # ENICUT 🎬
 
-**ENICUT** é um editor e cortador de vídeo super rápido, focado em performance, privacidade (100% offline) e uma interface de usuário premium e intuitiva. 
+<p align="center">
+  <strong>Cortador de vídeos ultrarrápido, leve e com foco em corte lossless sem re-encodagem.</strong><br>
+  Construído com Tauri v2, Rust e React 19. 100% local, offline e sem dependências pesadas.
+</p>
 
-Construído com tecnologias modernas de desktop para oferecer uma experiência nativa e incrivelmente leve.
+---
 
 ## 💡 Como surgiu a ideia?
 
-Eu utilizo muito a Reprodução Instantânea da NVIDIA (Instant Replay) para salvar clipes rápidos de gameplay e o meu dia a dia exige que eu corte diversos outros vídeos constantemente. O problema é que eu nunca encontrei uma ferramenta que fosse realmente **rápida, leve e focada apenas no essencial** para fazer esses cortes. A maioria dos editores demorava uma eternidade para abrir ou exigia re-renderizar o clipe inteiro. 
+Utilizava a **Reprodução Instantânea da NVIDIA** no dia a dia e essa experiência acabou gerando a ideia do ENICUT. A maioria dos editores disponíveis era pesada, lenta ou complexa demais para o que eu precisava foi aí que decidi criar algo do zero, focado apenas no essencial.
 
-Foi assim que nasceu o **ENICUT**: uma solução feita de desenvolvedor para usuário, criada para resolver essa dor e facilitar o dia a dia de quem precisa de agilidade. E isso é só o começo, logo mais vêm novas atualizações! 🚀
+---
 
-## ✨ Destaques da Versão 1.0
+## ✨ Principais Recursos
 
-- **Cortes Instantâneos (Fast Cut):** Diferente de editores tradicionais, o ENICUT corta vídeos sem necessidade de re-encodagem demorada utilizando `ffmpeg -c copy`. O corte de um vídeo longo acontece em frações de segundo.
-- **Interface Premium (Glassmorphism):** Integração profunda com o Windows 11 usando efeitos nativos Mica/Acrylic e uma Titlebar customizada de borda a borda.
-- **Privacidade Total:** Processamento 100% offline e local no seu PC.
-- **Extrema Leveza:** O núcleo do aplicativo (Rust + React) pesa **menos de 5 MB**, garantindo uso quase zero de memória RAM em repouso.
-- **Timeline Interativa:** Navegação rápida com geração assíncrona de miniaturas (thumbnails).
+- ⚡ **Corte Lossless em Frações de Segundo:** O corte é feito diretamente no container MP4 em Rust puro (stream-copy com extradata passthrough), sem re-encodagem. Um clipe longo é cortado em milissegundos mantendo a qualidade original (H.264, HEVC/H.265, AV1, AAC).
+- 🚀 **Zero Dependências Externas (Sem FFmpeg):** Ao contrário de outros cortadores que empacotam 100+ MB de binários do FFmpeg, o ENICUT utiliza APIs nativas do **Windows Media Foundation (WMF)** e **Windows Imaging Component (WIC)** com aceleração por hardware (GPU). O executável final é extremamente pequeno (< 5 MB).
+- 🎞️ **Timeline Interativa com Miniaturas Rápidas:** Geração assíncrona de miniaturas (thumbnails) com cache inteligente e aceleração por GPU.
+- 🔄 **Atualizações Automáticas In-App:** Sistema de auto-update integrado com GitHub Releases e assinatura criptográfica Ed25519. Verifique e instale atualizações diretamente pela logo do aplicativo sem precisar reinstalar.
+- ⌨️ **Atalhos de Teclado Profissionais:** Navegação e corte rápidos pelo teclado (`Espaço`, `I`, `O`, `Ctrl + ?`).
+- 🪟 **Interface Moderna e Minimalista:** Design sóbrio em dark mode, janela sem bordas com controles nativos customizados e pílulas de busca rápida (`[ ‹ 10s ]` e `[ 10s › ]`).
+- 🔒 **Privacidade Total:** 100% offline. Nenhum vídeo ou dado sai do seu computador.
+
+---
+
+## ⌨️ Atalhos de Teclado
+
+| Atalho | Ação |
+| :--- | :--- |
+| <kbd>Espaço</kbd> | Reproduzir / Pausar |
+| <kbd>I</kbd> | Definir Ponto Inicial (*In*) |
+| <kbd>O</kbd> | Definir Ponto Final (*Out*) |
+| <kbd>Ctrl</kbd> + <kbd>?</kbd> | Abrir modal de atalhos |
+| <kbd>Esc</kbd> | Fechar modais e menus |
+
+---
 
 ## 🛠️ Tecnologias Utilizadas
 
-- **Frontend:** React, TypeScript, TailwindCSS 4, Lucide React
-- **Backend:** Rust, Tauri v2
-- **Processamento de Mídia:** FFmpeg & FFprobe (Sidecars)
-- **Tooling:** Vite, Biome (Lint/Format), pnpm
+- **Core & Backend:**
+  - [Rust](https://www.rust-lang.org/) — Performance nativa, segurança de memória e manipulação de arquivos em baixo nível
+  - [Tauri v2](https://v2.tauri.app/) — Framework leve para desktop apps
+  - **Windows Media Foundation (WMF) & WIC** — Leitura de metadados e renderização de miniaturas acelerada por hardware
+  - **MP4 Container Remuxer** — Parser e multiplexador MP4 em Rust puro
+- **Frontend:**
+  - [React 19](https://react.dev/) & [TypeScript](https://www.typescriptlang.org/)
+  - [TailwindCSS v4](https://tailwindcss.com/) — Estilização moderna e enxuta
+  - [Lucide React](https://lucide.dev/) — Ícones
+- **Ferramentas:**
+  - [Vite](https://vitejs.dev/) — Dev server ultrarrápido
+  - [Biome](https://biomejs.dev/) — Linter e formatador de código
+  - [pnpm](https://pnpm.io/) — Gerenciador de pacotes eficiente
 
-## 🚀 Como Desenvolver
+---
 
-**Pré-requisitos:**
-- [Node.js](https://nodejs.org/) & [pnpm](https://pnpm.io/)
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Tauri CLI](https://v2.tauri.app/start/prerequisites/)
+## 🚀 Como Desenvolver Localmente
 
-**Passos:**
-1. Clone este repositório.
-2. Baixe os binários estáticos do [FFmpeg e FFprobe para Windows](https://www.gyan.dev/ffmpeg/builds/) e coloque os arquivos `.exe` na pasta `src-tauri/binaries/` com os nomes `ffmpeg.exe` e `ffprobe.exe`.
-3. Instale as dependências:
+### Pré-requisitos
+- [Node.js](https://nodejs.org/) (versão 20 ou superior)
+- [pnpm](https://pnpm.io/) (`corepack enable` ou `npm install -g pnpm`)
+- [Rust](https://www.rust-lang.org/tools/install) (com o target `x86_64-pc-windows-msvc`)
+
+> [!NOTE]
+> Não é necessário baixar nenhum binário externo (como FFmpeg). O projeto compila e roda nativamente no Windows de forma direta.
+
+### Passos:
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/Williamlp-dev/enicut.git
+   cd enicut
+   ```
+
+2. Instale as dependências:
    ```bash
    pnpm install
    ```
-4. Rode em ambiente de desenvolvimento:
+
+3. Inicie o ambiente de desenvolvimento:
    ```bash
    pnpm tauri dev
    ```
 
-## 📦 Como Compilar (Release)
+---
 
-O projeto está otimizado (`opt-level="s"`, `lto=true`, `codegen-units=1`) para gerar um binário incrivelmente pequeno.
+## 📦 Como Compilar para Produção
 
-Para criar o instalador final:
+Para gerar o instalador final do Windows:
+
 ```bash
 pnpm tauri build
 ```
-O `.msi` ou `.exe` gerado estará disponível em `src-tauri/target/release/bundle/`.
+
+Os artefatos gerados estarão disponíveis em:
+`src-tauri/target/release/bundle/nsis/` ou `src-tauri/target/release/bundle/msi/`.
 
 ---
-*Desenvolvido com foco em Clean Code e Arquitetura Robusta.*
+
+## 📄 Licença
+
+Este projeto é desenvolvido para uso pessoal e comunidade sob a licença de software livre. Sinta-se à vontade para abrir [Issues](https://github.com/Williamlp-dev/enicut/issues) ou enviar contribuições!

@@ -1,3 +1,4 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type React from "react";
 import {
@@ -13,6 +14,8 @@ import { type UseTimelineReturn, useTimeline } from "@/hooks/useTimeline";
 import { type UseVideoReturn, useVideo } from "@/hooks/useVideo";
 import { generateThumbnails, getCliArg } from "@/lib/tauri";
 import type { VideoInfo } from "@/types/video";
+
+const THUMB_COUNT = 10;
 
 // resolveVideoSrc é interno — VideoProvider expõe handleOpenFile em seu lugar.
 // beginScrub, scrubTo e endScrub são propagados via spread de video abaixo.
@@ -51,25 +54,49 @@ export function VideoProvider({ children }: { children: React.ReactNode }) {
   const onPause = useCallback(() => setIsPlaying(false), []);
   const onEnded = useCallback(() => setIsPlaying(false), []);
 
+  const thumbnailUnlistenRef = useRef<(() => void) | null>(null);
+
   const handleOpenFile = useCallback(
     async (path: string) => {
       activeVideoPathRef.current = path;
       try {
         const { info, src } = await resolveVideoSrc(path);
 
-        // Set React state — <video src={videoSrc} /> picks this up declaratively
         setVideoSrc(src);
         setVideoInfo(info);
         setIsPlaying(false);
         resetTimeline(info.duration);
 
-        // Generate thumbnails in the background
-        setThumbnails([]);
-        generateThumbnails(path, 10)
-          .then(async (paths) => {
+        // Limpa listener anterior e reinicia slots da timeline
+        thumbnailUnlistenRef.current?.();
+        thumbnailUnlistenRef.current = null;
+        setThumbnails(Array(THUMB_COUNT).fill(""));
+
+        // Escuta eventos "thumbnail-ready" emitidos pelo backend conforme
+        // cada frame é gerado em paralelo — preenche slots progressivamente.
+        const unlisten = await listen<{ index: number; path: string }>(
+          "thumbnail-ready",
+          (event) => {
             if (activeVideoPathRef.current !== path) return;
-            const { convertFileSrc } = await import("@tauri-apps/api/core");
-            setThumbnails(paths.map((p) => convertFileSrc(p)));
+            const { index, path: thumbPath } = event.payload;
+            if (!thumbPath) return;
+            setThumbnails((prev) => applyThumbnailPath(prev, index, convertFileSrc(thumbPath)));
+          },
+        );
+        thumbnailUnlistenRef.current = unlisten;
+
+        // Dispara a geração — o invoke retorna os hits de cache imediatamente;
+        // os frames ausentes chegam via "thumbnail-ready" à medida que ficam prontos.
+        generateThumbnails(path, THUMB_COUNT)
+          .then((cachedPaths) => {
+            if (activeVideoPathRef.current !== path) return;
+            setThumbnails((prev) => {
+              const next = [...prev];
+              cachedPaths.forEach((p, i) => {
+                if (p) next[i] = convertFileSrc(p);
+              });
+              return next;
+            });
           })
           .catch((err) =>
             console.warn("[VideoProvider] thumbnails error:", err),
@@ -83,6 +110,8 @@ export function VideoProvider({ children }: { children: React.ReactNode }) {
 
   const handleCloseVideo = useCallback(() => {
     activeVideoPathRef.current = null;
+    thumbnailUnlistenRef.current?.();
+    thumbnailUnlistenRef.current = null;
     pause();
     setVideoSrc(null);
     setVideoInfo(null);
@@ -140,4 +169,11 @@ export function useVideoContext(): VideoContextValue {
   if (!ctx)
     throw new Error("useVideoContext must be used inside <VideoProvider>");
   return ctx;
+}
+
+/** Retorna um novo array com o slot `index` substituído por `src`. */
+function applyThumbnailPath(prev: string[], index: number, src: string): string[] {
+  const next = [...prev];
+  next[index] = src;
+  return next;
 }

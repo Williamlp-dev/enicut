@@ -1,3 +1,4 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { useCallback, useRef } from "react";
 import { probeVideo } from "@/lib/tauri";
 import type { VideoInfo } from "@/types/video";
@@ -42,7 +43,7 @@ export function useVideo(): UseVideoReturn {
   }, []);
 
   // Aplica o seek garantindo no máximo 1 operação de decodificação ativa no demuxer por vez
-  const applySeek = useCallback((time: number): void => {
+  const seek = useCallback((time: number): void => {
     const video = videoRef.current;
     if (!video) return;
 
@@ -74,13 +75,6 @@ export function useVideo(): UseVideoReturn {
     }
   }, []);
 
-  const seek = useCallback(
-    (time: number): void => {
-      applySeek(time);
-    },
-    [applySeek],
-  );
-
   const beginScrub = useCallback((): void => {
     const video = videoRef.current;
     if (!video) return;
@@ -97,26 +91,25 @@ export function useVideo(): UseVideoReturn {
 
       requestAnimationFrame(() => {
         seekScheduledRef.current = false;
-        applySeek(desiredTimeRef.current);
+        seek(desiredTimeRef.current);
       });
     },
-    [applySeek],
+    [seek],
   );
 
   const endScrub = useCallback(
     (time: number): void => {
       seekScheduledRef.current = false;
-      applySeek(time);
+      seek(time);
       if (wasPlayingRef.current) {
         play();
       }
     },
-    [applySeek, play],
+    [seek, play],
   );
 
   const resolveVideoSrc = useCallback(
     async (path: string): Promise<{ info: VideoInfo; src: string }> => {
-      const { convertFileSrc } = await import("@tauri-apps/api/core");
       const src = convertFileSrc(path);
       const info = await probeVideo(path);
       return { info, src };

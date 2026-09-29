@@ -8,21 +8,26 @@ pub fn clean_all_temp_cache() {
     }
 }
 
+// Versão da lógica de geração de thumbnails.
+// Incrementar este valor invalida todos os caches antigos automaticamente.
+const THUMB_CACHE_VERSION: &str = "v4";
+
 // Retorna o diretório temporário do enicut para miniaturas.
 // Cria o diretório se não existir e limpa caches de vídeos antigos.
 pub fn thumbnail_cache_dir(video_path: &Path) -> std::io::Result<PathBuf> {
     let hash = hash_path(video_path);
     let root = std::env::temp_dir().join("enicut");
-    let dir = root.join(&hash);
+    // Inclui a versão no caminho para invalidar caches gerados por versões antigas
+    let dir = root.join(format!("{}_{}", hash, THUMB_CACHE_VERSION));
     std::fs::create_dir_all(&dir)?;
 
     // Mantém no máximo 5 caches recentes de miniaturas de vídeo
-    prune_old_cache(&root, &hash, 5);
+    prune_old_cache(&root, &format!("{}_{}", hash, THUMB_CACHE_VERSION), 5);
 
     Ok(dir)
 }
 
-fn prune_old_cache(root: &Path, current_hash: &str, max_entries: usize) {
+fn prune_old_cache(root: &Path, current_dir_name: &str, max_entries: usize) {
     if let Ok(entries) = std::fs::read_dir(root) {
         let mut dirs: Vec<_> = entries
             .filter_map(|e| e.ok())
@@ -40,7 +45,7 @@ fn prune_old_cache(root: &Path, current_hash: &str, max_entries: usize) {
             let to_remove = dirs.len().saturating_sub(max_entries);
             for entry in dirs.iter().take(to_remove) {
                 let p = entry.path();
-                if p.file_name().and_then(|n| n.to_str()) != Some(current_hash) {
+                if p.file_name().and_then(|n| n.to_str()) != Some(current_dir_name) {
                     let _ = std::fs::remove_dir_all(&p);
                 }
             }
